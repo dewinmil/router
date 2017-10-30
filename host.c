@@ -23,7 +23,7 @@ typedef struct{
 
 
 int main(){
-  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
   char macaddr1[16];
   struct ifaddrs *tmp;
@@ -32,24 +32,20 @@ int main(){
   ipaddr.sin_port = htons(5555);
   ipaddr.sin_addr.s_addr = INADDR_ANY;
   
-  
-  char buf[1500];
-  //struct sockaddr_ll recvaddr;
-  int recvaddrlen=sizeof(struct sockaddr_ll);
-     
-  arpHeader arp;
-  
   bind(sockfd, (struct sockaddr*)&ipaddr, sizeof(ipaddr));
   listen(sockfd, 10);
-    
-  int len = sizeof(recvaddr);
-  //int packet_socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
-  bind(sockfd, (struct sockaddr*)&recvaddr, sizeof(recvaddr));
+  
+  char buf[1500];
+     
+  arpHeader arp;
+  int len = sizeof(recvaddr);    
+  int socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
   while(1){
 
-    int n = recv(sockfd, &arp, sizeof(arpHeader), 0);
+    int n = recvfrom(sockfd, buf, 7, 0, (struct sockaddr*)&recvaddr, &len);
+    //int n = recv(sockfd, buf, 7, 0);
     if(n != -1){
-      fprintf(stderr, "got something: %d\n", n);
+      fprintf(stderr, "got something: %s\n", buf);
     }
     //close(packet_socket);
   }

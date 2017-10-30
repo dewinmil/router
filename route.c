@@ -8,18 +8,36 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+
+
+
+struct sockaddr_in createIpAddr(char str[20]){
+  struct sockaddr_in ipaddr;
+  ipaddr.sin_family = AF_INET;
+  ipaddr.sin_port = htons(5555);
+  ipaddr.sin_addr.s_addr = inet_addr(str);
+  return ipaddr;
+}
+
+
+
+
 int main(){
-  int packet_socket, send_socket;
-  struct sockaddr_in ipaddr, broadcastaddr;
+  int send_socket1, send_socket2;
+  int send_socketH3, send_socketH4, send_socketH5;
+  int send_socketH1 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketH2 = socket(AF_INET, SOCK_DGRAM, 0);
+
+  struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
+  int packet_socket, send_socket, e;
   send_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
   ipaddr.sin_family = AF_INET;
   ipaddr.sin_port = htons(5555);
   ipaddr.sin_addr.s_addr = INADDR_ANY;
 
-  broadcastaddr.sin_family = AF_INET;
-  broadcastaddr.sin_port = htons(5555);
-  broadcastaddr.sin_addr.s_addr = inet_addr("1.1.1.1");
+  h1addr = createIpAddr("10.1.0.3");
+  h2addr = createIpAddr("10.1.0.3");
 
   if(bind(packet_socket, (struct sockaddr*)&ipaddr, sizeof(ipaddr))==-1){
     perror("bind");
@@ -51,7 +69,16 @@ int main(){
     }
   }
   //free the interface list when we don't need it anymore
-  freeifaddrs(ifaddr);
+  //freeifaddrs(ifaddr);
+
+ /* 
+  if(e = connect(send_socketH1,(struct sockaddr*)&h1addr, sizeof(h1addr)) == -1){
+    perror("could not connect to h1");
+  }
+  if(e = connect(send_socketH2,(struct sockaddr*)&h2addr, sizeof(h1addr)) == -1){
+    perror("could not connect to h2");
+  }
+  */
 
   printf("Ready to recieve now\n");
   while(1){
@@ -85,17 +112,24 @@ int main(){
     sprintf(str, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
     sprintf(str2, "%d.%d.%d.%d", ints2[0], ints2[1], ints2[2], ints2[3]);
     //start processing all others
-    printf("Got a %d byte packet from ip: %s\n", n, str);
-    printf("on line %s\n", str2);
     
-    if(strcmp(str2, "10.1.0.1") == 0){//packet from h1
-      fprintf(stderr, "from h1\n");
+    if(strcmp(str, "10.1.0.3") == 0){//packet from h1
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("on line %s\n\n", str2);
+      for(i = 8; i < 12 ; i++){
+        ints2[i-4] = (int)buf[i];
+      }
+      sprintf(str2, "%d.%d.%d.%d", ints2[0], ints2[1], ints2[2], ints2[3]);
+      printf("NEWNUMS %s\n\n", str2);
+      
+      //sendto(send_socketH2, str, 7, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
     }
-    if(strcmp(str2, "10.1.1.1") == 0){//packet from h2
-      fprintf(stderr, "from h2\n");
+    if(strcmp(str, "10.1.1.5") == 0){//packet from h2
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("on line %s\n\n", str2);
+      sendto(send_socketH1, str, 7, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
     }
 
-    int n2 = send(send_socket, &str, 8, 0);
 
     
     
