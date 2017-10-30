@@ -34,7 +34,7 @@ int main(){
   
   bind(sockfd, (struct sockaddr*)&ipaddr, sizeof(ipaddr));
   listen(sockfd, 10);
-  
+   
   char buf[1500];
      
   arpHeader arp;
@@ -44,7 +44,12 @@ int main(){
 
     int n = recvfrom(sockfd, buf, 1500, 0, (struct sockaddr*)&recvaddr, &len);
     if(n != -1){
-      fprintf(stderr, "got something: %s\n", buf);
+      //char* ip = inet_ntoa(arp.sourceIp.sin_addr);
+      //fprintf(stderr, "got something: %s\n", ip);
+      unsigned char str[6];
+      int i;
+      memcpy(&str[1], &buf[1], 6);
+      fprintf(stderr, "%02X::%02X::%02X::%02X::%02X::%02X\n", str[0], str[1], str[2], str[3], str[4], str[5]);
     }
     //close(packet_socket);
   }

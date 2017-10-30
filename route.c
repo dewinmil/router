@@ -7,7 +7,17 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
 
+typedef struct{
+  struct sockaddr_ll sourceMac;
+  struct sockaddr_ll targetMac;
+  struct sockaddr_in sourceIp;
+  struct sockaddr_in targetIp;
+
+} arpHeader;
 
 
 
@@ -78,43 +88,38 @@ int main(){
     int recvaddrlen=sizeof(struct sockaddr_ll);
 
     int n = recvfrom(packet_socket, buf, 1500,0,(struct sockaddr*)&recvaddr, &recvaddrlen);
-    int ints[4];
-    int ints2[4];
+
     if(recvaddr.sll_pkttype==PACKET_OUTGOING)
-      continue;
+       continue;
+
     int i;
     char str[7];
-    char str2[7];
+    int ints[4];
     for(i = 28; i < 32; i++){
       ints[i-28] = (int)buf[i];
     }
-    
-    for(i = 38; i < 42; i++){
-      ints2[i-38] = (int)buf[i];
-    }
+
     char macaddr[11];
     int len = 0;
     for(i = 0; i < 6; i++){//gets macaddr of last recvd
        len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
     }
 
-
-
     sprintf(str, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
-    sprintf(str2, "%d.%d.%d.%d", ints2[0], ints2[1], ints2[2], ints2[3]);
     //start processing all others
     
     if(strcmp(str, "10.1.0.3") == 0){//packet from h1
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("on line %s\n\n", str2); 
+      printf("macaddress H1: %s", macaddr);
       sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
+
     }
     if(strcmp(str, "10.1.1.5") == 0){//packet from h2
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("on line %s\n\n", str2);
+      printf("macaddress H2: %s", macaddr);
       sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-    }
 
+    }
 
     
     
