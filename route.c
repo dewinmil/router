@@ -37,7 +37,7 @@ int main(){
   ipaddr.sin_addr.s_addr = INADDR_ANY;
 
   h1addr = createIpAddr("10.1.0.3");
-  h2addr = createIpAddr("10.1.0.3");
+  h2addr = createIpAddr("10.1.1.5");
 
   if(bind(packet_socket, (struct sockaddr*)&ipaddr, sizeof(ipaddr))==-1){
     perror("bind");
@@ -70,15 +70,6 @@ int main(){
   }
   //free the interface list when we don't need it anymore
   //freeifaddrs(ifaddr);
-
- /* 
-  if(e = connect(send_socketH1,(struct sockaddr*)&h1addr, sizeof(h1addr)) == -1){
-    perror("could not connect to h1");
-  }
-  if(e = connect(send_socketH2,(struct sockaddr*)&h2addr, sizeof(h1addr)) == -1){
-    perror("could not connect to h2");
-  }
-  */
 
   printf("Ready to recieve now\n");
   while(1){
@@ -115,19 +106,13 @@ int main(){
     
     if(strcmp(str, "10.1.0.3") == 0){//packet from h1
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("on line %s\n\n", str2);
-      for(i = 8; i < 12 ; i++){
-        ints2[i-4] = (int)buf[i];
-      }
-      sprintf(str2, "%d.%d.%d.%d", ints2[0], ints2[1], ints2[2], ints2[3]);
-      printf("NEWNUMS %s\n\n", str2);
-      
-      //sendto(send_socketH2, str, 7, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
+      printf("on line %s\n\n", str2); 
+      sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
     }
     if(strcmp(str, "10.1.1.5") == 0){//packet from h2
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("on line %s\n\n", str2);
-      sendto(send_socketH1, str, 7, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
+      sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
     }
 
 

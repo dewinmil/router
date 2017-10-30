@@ -42,8 +42,7 @@ int main(){
   int socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
   while(1){
 
-    int n = recvfrom(sockfd, buf, 7, 0, (struct sockaddr*)&recvaddr, &len);
-    //int n = recv(sockfd, buf, 7, 0);
+    int n = recvfrom(sockfd, buf, 1500, 0, (struct sockaddr*)&recvaddr, &len);
     if(n != -1){
       fprintf(stderr, "got something: %s\n", buf);
     }
