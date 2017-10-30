@@ -7,7 +7,8 @@
 #include <ifaddrs.h>
 #include <string.h>
 #include <arpa/inet.h>
-
+#include <unistd.h>
+#include <fcntl.h>
 
 
 typedef struct{
@@ -41,15 +42,16 @@ int main(){
   bind(sockfd, (struct sockaddr*)&ipaddr, sizeof(ipaddr));
   listen(sockfd, 10);
     
+  int len = sizeof(recvaddr);
+  //int packet_socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
+  bind(sockfd, (struct sockaddr*)&recvaddr, sizeof(recvaddr));
   while(1){
-    
-    int len = sizeof(recvaddr);
-    int packet_socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
 
-
-    int n = recv(packet_socket, &arp, sizeof(arpHeader), 0);
-    fprintf(stderr, "got something: %d\n", n);
-
+    int n = recv(sockfd, &arp, sizeof(arpHeader), 0);
+    if(n != -1){
+      fprintf(stderr, "got something: %d\n", n);
+    }
+    //close(packet_socket);
   }
 
   
