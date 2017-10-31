@@ -33,10 +33,13 @@ struct sockaddr_in createIpAddr(char str[20]){
 
 
 int main(){
-  int send_socket1, send_socket2;
-  int send_socketH3, send_socketH4, send_socketH5;
+  int send_socketR1 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketR2 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH1 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH2 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketH3 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketH4 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketH5 = socket(AF_INET, SOCK_DGRAM, 0);
 
   struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
   int packet_socket, send_socket, e;
@@ -46,8 +49,13 @@ int main(){
   ipaddr.sin_port = htons(5555);
   ipaddr.sin_addr.s_addr = INADDR_ANY;
 
+  r1addr = createIpAddr("10.0.0.1");
+  r2addr = createIpAddr("10.0.0.2");
   h1addr = createIpAddr("10.1.0.3");
   h2addr = createIpAddr("10.1.1.5");
+  h3addr = createIpAddr("10.3.0.32");
+  h4addr = createIpAddr("10.3.1.201");
+  h5addr = createIpAddr("10.3.4.54");
 
   if(bind(packet_socket, (struct sockaddr*)&ipaddr, sizeof(ipaddr))==-1){
     perror("bind");
@@ -107,18 +115,54 @@ int main(){
 
     sprintf(str, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
     //start processing all others
-    
+   
+
+ 
+    if(strcmp(str, "10.0.0.1") == 0){//packet from r1
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("macaddress H1: %s", macaddr);
+      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+    }
+    if(strcmp(str, "10.0.0.2") == 0){//packet from r2
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("macaddress H1: %s", macaddr);
+      sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
+      sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
+    }
     if(strcmp(str, "10.1.0.3") == 0){//packet from h1
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("macaddress H1: %s", macaddr);
       sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
-
+      sendto(send_socketR2, buf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
     }
     if(strcmp(str, "10.1.1.5") == 0){//packet from h2
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("macaddress H2: %s", macaddr);
       sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-
+      sendto(send_socketR2, buf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
+    }
+    if(strcmp(str, "10.3.0.32") == 0){//packet from h3
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("macaddress H3: %s", macaddr);
+      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
+    }
+    if(strcmp(str, "10.3.1.201") == 0){//packet from h4
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("macaddress H2: %s", macaddr);
+      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
+    }
+    if(strcmp(str, "10.3.4.54") == 0){//packet from h5
+      printf("Got a %d byte packet from ip: %s\n", n, str);
+      printf("macaddress H2: %s", macaddr);
+      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
     }
 
     
