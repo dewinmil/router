@@ -40,16 +40,41 @@ int main(){
   arpHeader arp;
   int len = sizeof(recvaddr);    
   int socket = accept(sockfd, (struct sockaddr*)&recvaddr, &len);
+  
   while(1){
+    int i;
+    char macaddr[11];
+    int len = 0;
+    //for(i = 0; i < 6; i++){//gets macaddr of last recvd
+    //   len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
+    //}
+
+  
+   
 
     int n = recvfrom(sockfd, buf, 1500, 0, (struct sockaddr*)&recvaddr, &len);
+    
+    char str2[7];
+    int ints[4];
+    for(i = 0; i < 4; i++){
+      ints[i] = (int)buf[i];
+    }
+    sprintf(str2, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
+    
+    char str3[7];
+    for(i = 38; i < 42; i++){
+      ints[i-38] = (int)buf[i];
+    }
+    sprintf(str3, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
+
     if(n != -1){
       //char* ip = inet_ntoa(arp.sourceIp.sin_addr);
       //fprintf(stderr, "got something: %s\n", ip);
       unsigned char str[6];
       int i;
-      memcpy(&str[1], &buf[1], 6);
-      fprintf(stderr, "%02X::%02X::%02X::%02X::%02X::%02X\n", str[0], str[1], str[2], str[3], str[4], str[5]);
+      memcpy(str, &buf[4], 6);
+      fprintf(stderr, "Target Mac%02X::%02X::%02X::%02X::%02X::%02X\n", str[0], str[1], str[2], str[3], str[4], str[5]); 
+      fprintf(stderr, "TargetV Ip: %s\n", str2);
     }
     //close(packet_socket);
   }

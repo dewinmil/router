@@ -16,7 +16,6 @@ typedef struct{
   struct sockaddr_ll targetMac;
   struct sockaddr_in sourceIp;
   struct sockaddr_in targetIp;
-
 } arpHeader;
 
 
@@ -56,10 +55,8 @@ int main(){
   h3addr = createIpAddr("10.3.0.32");
   h4addr = createIpAddr("10.3.1.201");
   h5addr = createIpAddr("10.3.4.54");
-
-  if(bind(packet_socket, (struct sockaddr*)&ipaddr, sizeof(ipaddr))==-1){
-    perror("bind");
-  }
+  
+  
   
   //get list of interfaces (actually addresses)
   struct ifaddrs *ifaddr, *tmp;
@@ -96,12 +93,13 @@ int main(){
     int recvaddrlen=sizeof(struct sockaddr_ll);
 
     int n = recvfrom(packet_socket, buf, 1500,0,(struct sockaddr*)&recvaddr, &recvaddrlen);
-
+    
     if(recvaddr.sll_pkttype==PACKET_OUTGOING)
        continue;
 
     int i;
     char str[7];
+    char str2[84];
     int ints[4];
     for(i = 28; i < 32; i++){
       ints[i-28] = (int)buf[i];
@@ -112,57 +110,71 @@ int main(){
     for(i = 0; i < 6; i++){//gets macaddr of last recvd
        len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
     }
-
+    
     sprintf(str, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
     //start processing all others
-   
-
- 
+    
+    char sendbuf[1500];
+    
     if(strcmp(str, "10.0.0.1") == 0){//packet from r1
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H1: %s", macaddr);
-      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+      printf("macaddress r1: %s", macaddr);
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH3,sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
     }
     if(strcmp(str, "10.0.0.2") == 0){//packet from r2
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H1: %s", macaddr);
-      sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-      sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
+      printf("macaddress r2: %s", macaddr);
+      sendto(send_socketH1, sendbuf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
+      sendto(send_socketH2, sendbuf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
     }
     if(strcmp(str, "10.1.0.3") == 0){//packet from h1
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("macaddress H1: %s", macaddr);
-      sendto(send_socketH2, buf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
-      sendto(send_socketR2, buf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH2, sendbuf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
+      sendto(send_socketR2, sendbuf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
     }
     if(strcmp(str, "10.1.1.5") == 0){//packet from h2
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("macaddress H2: %s", macaddr);
-      sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-      sendto(send_socketR2, buf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH1, sendbuf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
+      sendto(send_socketR2, sendbuf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
     }
     if(strcmp(str, "10.3.0.32") == 0){//packet from h3
       printf("Got a %d byte packet from ip: %s\n", n, str);
       printf("macaddress H3: %s", macaddr);
-      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
-      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
     }
     if(strcmp(str, "10.3.1.201") == 0){//packet from h4
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H2: %s", macaddr);
-      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH5, buf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
-      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
+      printf("macaddress H4: %s", macaddr);
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH3, sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
+      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
     }
     if(strcmp(str, "10.3.4.54") == 0){//packet from h5
       printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H2: %s", macaddr);
-      sendto(send_socketH3, buf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH4, buf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketR1, buf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
+      printf("macaddress H5: %s", macaddr);
+      memcpy(sendbuf, &buf[28], 4);
+      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
+      sendto(send_socketH3, sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
+      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
+      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
     }
 
     
