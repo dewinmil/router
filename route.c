@@ -34,7 +34,7 @@ struct sockaddr_in createIpAddr(char str[20]){
 int main(){
   int send_socketR1 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketR2 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketH1 = socket(AF_INET, SOCK_DGRAM, 0);
+  int send_socketH1 = socket(AF_INET, SOCK_RAW, 0);
   int send_socketH2 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH3 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH4 = socket(AF_INET, SOCK_DGRAM, 0);
@@ -42,7 +42,7 @@ int main(){
    
   struct sockaddr_ll r1mac, r2mac;
   struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
-  int packet_socket, send_socket, e;
+  int packet_socket, eth1_socket, eth2_socket, eth3_socket, send_socket, e;
   send_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
   ipaddr.sin_family = AF_INET;
@@ -89,6 +89,45 @@ int main(){
 	//  perror("bind");
 	//}
       }
+      if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){
+	printf("Creating Socket on interface %s\n",tmp->ifa_name);
+   
+	eth1_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if(eth1_socket<0){
+	  perror("socket");
+	  return 2;
+	}
+        
+	if(bind(eth1_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  perror("bind");
+	}
+      }
+      if(!strncmp(&(tmp->ifa_name[3]),"eth2",4)){
+	printf("Creating Socket on interface %s\n",tmp->ifa_name);
+   
+	eth2_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if(eth2_socket<0){
+	  perror("socket");
+	  return 2;
+	}
+        
+	if(bind(eth2_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  perror("bind");
+	}
+      }
+      if(!strncmp(&(tmp->ifa_name[3]),"eth3",4)){
+	printf("Creating Socket on interface %s\n",tmp->ifa_name);
+   
+	eth3_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if(eth3_socket<0){
+	  perror("socket");
+	  return 2;
+	}
+        
+	if(bind(eth3_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  perror("bind");
+	}
+      }
     }
   }
   //free the interface list when we don't need it anymore
@@ -117,10 +156,6 @@ int main(){
     
     int i;
     int len = 0;
-    for(i = 0; i < 6; i++){//gets macaddr of last recvd
-       len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
-    }
-    len = 0;
     for(i = 0; i < 42; i++){//gets whole buffer
       len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
     }
@@ -140,7 +175,7 @@ int main(){
             int op = 2;
           
             memcpy(temp, &buf[38], 4);
-            memcpy(&buf[21], &op, 1);//set op
+            memcpy(&buf[21], &op, 1);//set op - may want to set buf[0] to int 0 as op is 2 bytes
             memcpy(&buf[32], &buf[6], 6);//source mac cpy into target mac
             memcpy(&buf[38], &buf[28], 4);//source ip cpy into target ip
             memcpy(&buf[28], temp, 4);//target ip cpy into source ip
@@ -153,12 +188,13 @@ int main(){
               len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
             }
             fprintf(stderr, "arp reply: %s\n\n", wholeBuf);
-            sendto(send_socketH1, buf, 42, 0, (struct sockaddr*)&h1addr, sizeof(h1addr));
+            //sendto(eth1_socket, buf, 42, 0, (struct sockaddr*)&recvaddr, recvaddrlen);
+            send(eth1_socket, buf, 42, 0);
           }
         }else{
           fprintf(stderr, "not an arp packet\n");
         }
-
+    
       }
     }else if (n == 98){
       len = 0;
