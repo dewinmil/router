@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <netinet/ip.h>
 
 typedef struct{
   struct sockaddr_ll sourceMac;
@@ -29,16 +30,39 @@ struct sockaddr_in createIpAddr(char str[20]){
 }
 
 
+//taken from 
+//http://www.microhowto.info/howto/calculate_an_internet_protocol_checksum_in_c.html
+uint16_t createCheckSum(char* data, size_t length) {
+    // Cast the data pointer to one that can be indexed.
 
+    // Initialise the accumulator.
+    uint32_t acc=0xffff;
+
+    // Handle complete 16-bit blocks.
+    for (size_t i=0;i+1<length;i+=2) {
+        uint16_t word;
+        memcpy(&word,data+i,2);
+        acc+=ntohs(word);
+        if (acc>0xffff) {
+            acc-=0xffff;
+        }
+    }
+
+    // Handle any partial block at the end of the data.
+    if (length&1) {
+        uint16_t word=0;
+        memcpy(&word,data+length-1,1);
+        acc+=ntohs(word);
+        if (acc>0xffff) {
+            acc-=0xffff;
+        }
+    }
+
+    // Return the checksum in network byte order.
+    return htons(~acc);
+}
 
 int main(){
-  int send_socketR1 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketR2 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketH1 = socket(AF_INET, SOCK_RAW, 0);
-  int send_socketH2 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketH3 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketH4 = socket(AF_INET, SOCK_DGRAM, 0);
-  int send_socketH5 = socket(AF_INET, SOCK_DGRAM, 0);
    
   struct sockaddr_ll r1mac, r2mac;
   struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
@@ -49,11 +73,6 @@ int main(){
   ipaddr.sin_port = htons(5555);
   ipaddr.sin_addr.s_addr = INADDR_ANY;
 
-  r1addr = createIpAddr("10.0.0.1");
-  r2addr = createIpAddr("10.0.0.2");
-  h1addr = createIpAddr("10.1.0.3");
-  h2addr = createIpAddr("10.1.1.5");
-  h3addr = createIpAddr("10.3.0.32");
   h4addr = createIpAddr("10.3.1.201");
   h5addr = createIpAddr("10.3.4.54");
   
@@ -147,18 +166,14 @@ int main(){
     if(recvaddr.sll_pkttype==PACKET_OUTGOING)
        continue;
 
-    char str[7];
-    sprintf(str, "%d.%d.%d.%d", buf[38], buf[39], buf[40], buf[41]);//target ip
-    char str2[8];
-    sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
-    char str3[4];
-    sprintf(str3, "%02X", buf[21]);//op flag
     
     int i;
     int len = 0;
+    /*
     for(i = 0; i < 42; i++){//gets whole buffer
       len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
     }
+    */
     //start processing all others
     
     char sendbuf[1500];
@@ -166,10 +181,16 @@ int main(){
     //fprintf(stderr, "str: %s\n", str);
 
     if(n == 42){
+      char str[7];
+      sprintf(str, "%d.%d.%d.%d", buf[38], buf[39], buf[40], buf[41]);//target ip
+      char str2[8];
+      sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
+      char str3[4];
+      sprintf(str3, "%02X", buf[21]);//op flag
       if(strcmp(str, "10.1.0.1") == 0){//packet from h1
         if(strcmp(str2, "0806") == 0){//arp
           if(strcmp(str3, "01") == 0){//arp request
-            fprintf(stderr, "is an arp packet\n");
+            fprintf(stderr, "is an arp packet\n\n");
             int ints2[4]; 
             char temp[4];
             int op = 2;
@@ -182,13 +203,13 @@ int main(){
             memcpy(&buf[22], r1mac.sll_addr, 6);
             memcpy(&buf[6], r1mac.sll_addr, 6);//set eth header source
             memcpy(buf, recvaddr.sll_addr, 6);//set eth header dest 
-            fprintf(stderr, "arp recv: %s\n\n", wholeBuf);
+            
+            /*
             len = 0;
             for(i = 0; i < 42; i++){//gets whole buffer
               len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
             }
-            fprintf(stderr, "arp reply: %s\n\n", wholeBuf);
-            //sendto(eth1_socket, buf, 42, 0, (struct sockaddr*)&recvaddr, recvaddrlen);
+            */
             send(eth1_socket, buf, 42, 0);
           }
         }else{
@@ -197,12 +218,70 @@ int main(){
     
       }
     }else if (n == 98){
+      fprintf(stderr, "is an icmp packet \n\n");
+      
+      char str[7];
+      sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
+      char str2[8];
+      sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
+      char str3[4];
+      sprintf(str3, "%02X", buf[21]);//op flag
+      
+       
+      fprintf(stderr, "str: %s\n", str);
+      if(strcmp(str, "10.0.0.1") == 0){//dest is r1
+        
+        fprintf(stderr, "made it\n");
+        
+        //struct ip *ipheader;
+        char ipheader[20];
+        
+        uint16_t checksum;
+        uint16_t clear = 0; 
+        uint16_t sum;
+
+        memcpy(&checksum, &buf[24], 2); 
+        memcpy(&buf[24], &clear, 2); 
+        memcpy(ipheader, &buf[14], 20); 
+        sum = createCheckSum(ipheader, 20);
+        
+        if(sum == checksum){
+          fprintf(stderr, "sum: %d\n", sum);
+          fprintf(stderr, "checksum: %d\n", checksum);
+
+          //for ip header
+          char temp[4];
+          memcpy(temp, &buf[26], 4);//source ip -> tmp
+          memcpy(&buf[26], &buf[30], 4);//target ip -> source ip
+          memcpy(&buf[30], temp, 4);//source ip -> target ip
+
+          uint8_t *ttl = &buf[22]; 
+          *ttl = *ttl - 1;
+          memcpy(&buf[22], ttl, 1);//replace old ttl
+
+          memcpy(ipheader, &buf[14], 20); 
+          checksum = createCheckSum(ipheader, 20);//create newchecksum 
+          memcpy(&buf[24], &checksum, 2);//insert checksum into ipheader
+
+          //for icmp header
+          
+
+          
+
+        }
+  
+         
+        
+      }
+
+
+
+      /*
       len = 0;
       for(i = 0; i < n; i++){//gets whole buffer
         len+=sprintf(icmpBuf+len,"%02X%s", buf[i],i < (n-1) ? ":":"");
       }
-      fprintf(stderr, "buffer: %s\n\n", icmpBuf);
-
+      */
     }
     
   }
