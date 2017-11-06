@@ -27,7 +27,8 @@ int main(){
 
   char macaddr1[16];
   struct ifaddrs *tmp;
-  struct sockaddr_in ipaddr, recvaddr;
+  struct sockaddr_ll recvaddr;
+  struct sockaddr_in ipaddr;
   ipaddr.sin_family = AF_INET;
   ipaddr.sin_port = htons(5555);
   ipaddr.sin_addr.s_addr = INADDR_ANY;
@@ -43,17 +44,21 @@ int main(){
   
   while(1){
     int i;
-    char macaddr[11];
-    int len = 0;
-    //for(i = 0; i < 6; i++){//gets macaddr of last recvd
-    //   len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
-    //}
 
   
    
     
     int n = recvfrom(sockfd, buf, 1500, 0, (struct sockaddr*)&recvaddr, &len);
-    
+
+    char macaddr[11];
+    int len = 0;
+    for(i = 0; i < 6; i++){//gets macaddr of last recvd
+       len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
+    }
+
+
+
+   
     char str[7];
     sprintf(str, "%d.%d.%d.%d", buf[38], buf[39], buf[40], buf[41]);//dest ip
     char str2[8];
@@ -68,6 +73,7 @@ int main(){
         fprintf(stderr, "got an arp pack\n");
         if(strcmp(str3, "02") == 0){//got arp reply
           fprintf(stderr, "got an arp reply\n");
+          fprintf(stderr, "macaddr: %s\n", macaddr);
           
         }
       }
