@@ -187,36 +187,41 @@ int main(){
       sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
       char str3[4];
       sprintf(str3, "%02X", buf[21]);//op flag
-      if(strcmp(str, "10.1.0.1") == 0){//packet from h1
-        if(strcmp(str2, "0806") == 0){//arp
-          if(strcmp(str3, "01") == 0){//arp request
-            fprintf(stderr, "is an arp packet\n\n");
-            int ints2[4]; 
-            char temp[4];
-            int op = 2;
-          
-            memcpy(temp, &buf[38], 4);
-            memcpy(&buf[21], &op, 1);//set op - may want to set buf[0] to int 0 as op is 2 bytes
-            memcpy(&buf[32], &buf[6], 6);//source mac cpy into target mac
-            memcpy(&buf[38], &buf[28], 4);//source ip cpy into target ip
-            memcpy(&buf[28], temp, 4);//target ip cpy into source ip
-            memcpy(&buf[22], r1mac.sll_addr, 6);
-            memcpy(&buf[6], r1mac.sll_addr, 6);//set eth header source
-            memcpy(buf, recvaddr.sll_addr, 6);//set eth header dest 
+      if(strcmp(str2, "0806") == 0){//arp
+        if(strcmp(str3, "01") == 0){//arp request
+          fprintf(stderr, "is an arp packet\n\n");
+          int ints2[4]; 
+          char temp[4];
+          int op = 2;
+        
+          memcpy(temp, &buf[38], 4);
+          memcpy(&buf[21], &op, 1);//set op - may want to set buf[0] to int 0 as op is 2 bytes
+          memcpy(&buf[32], &buf[6], 6);//source mac cpy into target mac
+          memcpy(&buf[38], &buf[28], 4);//source ip cpy into target ip
+          memcpy(&buf[28], temp, 4);//target ip cpy into source ip
+          memcpy(&buf[22], r1mac.sll_addr, 6);
+          memcpy(&buf[6], r1mac.sll_addr, 6);//set eth header source
+          memcpy(buf, recvaddr.sll_addr, 6);//set eth header dest 
             
-            /*
-            len = 0;
-            for(i = 0; i < 42; i++){//gets whole buffer
-              len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
-            }
-            */
+          /*
+          len = 0;
+          for(i = 0; i < 42; i++){//gets whole buffer
+            len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
+          }
+          */
+          fprintf(stderr, "str: %s\n", str);
+          if(strcmp(str, "10.1.0.1") == 0){//packet from h1
             send(eth1_socket, buf, 42, 0);
           }
-        }else{
-          fprintf(stderr, "not an arp packet\n");
+          if(strcmp(str, "10.1.1.1") == 0){//packet from h1
+            send(eth2_socket, buf, 42, 0);
+          }
         }
-    
+      }else{
+        fprintf(stderr, "not an arp packet\n");
       }
+    
+      
     }else if (n == 98){
       fprintf(stderr, "is an icmp packet \n\n");
       
@@ -231,8 +236,13 @@ int main(){
       fprintf(stderr, "str: %s\n", str);
       if(strcmp(str, "10.0.0.1") == 0){//dest is r1
         
-        fprintf(stderr, "made it\n");
-        
+        //for ethernet header
+        char tempMac[6];
+        memcpy(tempMac, buf, 6);//cpy target mac
+        memcpy(buf, &buf[6], 6);//source mac -> target mac
+        memcpy(&buf[6], tempMac, 6);//target mac -> source mac
+
+
         //struct ip *ipheader;
         char ipheader[20];
         
@@ -259,13 +269,41 @@ int main(){
           *ttl = *ttl - 1;
           memcpy(&buf[22], ttl, 1);//replace old ttl
 
-          memcpy(ipheader, &buf[14], 20); 
+          memcpy(ipheader, &buf[14], 20);//cpy ipheader
           checksum = createCheckSum(ipheader, 20);//create newchecksum 
           memcpy(&buf[24], &checksum, 2);//insert checksum into ipheader
 
-          //for icmp header
+     
           
+          //for icmp header
+          char icmpheader[64];
+          
+          memcpy(&checksum, &buf[36], 2);//cpy checksum 
+          memcpy(&buf[36], &clear, 2);//clear checksum
+          memcpy(icmpheader, &buf[34], 64);//cpy icmp header 
+          sum = createCheckSum(icmpheader, 64);
+          
+          if(sum == checksum){
+            memcpy(&buf[34], &clear, 1);
+            
+            memcpy(icmpheader, &buf[34], 64);//cpy icmp buffer
+            checksum = createCheckSum(icmpheader, 64);//create newchecksum 
+            memcpy(&buf[36], &checksum, 2);//insert checksum into icmpheader
+  
 
+            sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
+            
+            if(strcmp(str, "10.1.0.3") == 0){
+              send(eth1_socket, buf, 98, 0);
+            }
+            if(strcmp(str, "10.1.1.5") == 0){
+              send(eth2_socket, buf, 98, 0);
+            }
+            
+            
+          }
+
+          
           
 
         }
