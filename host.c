@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 
 typedef struct{
@@ -20,10 +22,8 @@ typedef struct{
 } arpHeader;
 
 
-
-
 int main(){
-  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
 
   char macaddr1[16];
   struct ifaddrs *tmp;
@@ -51,30 +51,27 @@ int main(){
 
   
    
-
+    
     int n = recvfrom(sockfd, buf, 1500, 0, (struct sockaddr*)&recvaddr, &len);
     
-    char str2[7];
-    int ints[4];
-    for(i = 0; i < 4; i++){
-      ints[i] = (int)buf[i];
-    }
-    sprintf(str2, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
-    
-    char str3[7];
-    for(i = 38; i < 42; i++){
-      ints[i-38] = (int)buf[i];
-    }
-    sprintf(str3, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
+    char str[7];
+    sprintf(str, "%d.%d.%d.%d", buf[38], buf[39], buf[40], buf[41]);//dest ip
+    char str2[8];
+    sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
+    char str3[4];
+    sprintf(str3, "%02X", buf[21]);//op flag
 
-    if(n != -1){
-      //char* ip = inet_ntoa(arp.sourceIp.sin_addr);
-      //fprintf(stderr, "got something: %s\n", ip);
-      unsigned char str[6];
-      int i;
-      memcpy(str, &buf[4], 6);
-      fprintf(stderr, "Target Mac%02X::%02X::%02X::%02X::%02X::%02X\n", str[0], str[1], str[2], str[3], str[4], str[5]); 
-      fprintf(stderr, "TargetV Ip: %s\n", str2);
+
+    if(strcmp(str, "10.1.0.3") == 0){//got pack from router
+      fprintf(stderr, "got pack from router\n");
+      if(strcmp(str2, "0806") == 0){//got an arp packet
+        fprintf(stderr, "got an arp pack\n");
+        if(strcmp(str3, "02") == 0){//got arp reply
+          fprintf(stderr, "got an arp reply\n");
+          
+        }
+      }
+      
     }
     //close(packet_socket);
   }

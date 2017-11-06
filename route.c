@@ -39,7 +39,8 @@ int main(){
   int send_socketH3 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH4 = socket(AF_INET, SOCK_DGRAM, 0);
   int send_socketH5 = socket(AF_INET, SOCK_DGRAM, 0);
-
+   
+  struct sockaddr_ll r1mac, r2mac;
   struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
   int packet_socket, send_socket, e;
   send_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -69,14 +70,21 @@ int main(){
     if(tmp->ifa_addr->sa_family==AF_PACKET){
       printf("Interface: %s\n",tmp->ifa_name);
       //create a packet socket on interface r?-eth1
-      if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){
+      //if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){
+      if(!strncmp(&(tmp->ifa_name[0]),"r1-eth0",7)){
 	printf("Creating Socket on interface %s\n",tmp->ifa_name);
-
+   
+        struct sockaddr_ll *s = (struct sockaddr_ll*) tmp->ifa_addr;
+        int i;
+        for(i = 0; i < 6; i++){  
+          r1mac.sll_addr[i] = s->sll_addr[i];
+        }
 	packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if(packet_socket<0){
 	  perror("socket");
 	  return 2;
 	}
+        
 	//if(bind(packet_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
 	//  perror("bind");
 	//}
@@ -87,6 +95,8 @@ int main(){
   //freeifaddrs(ifaddr);
 
   printf("Ready to recieve now\n");
+  char *macaddr = malloc(11 * sizeof(char));
+  char *wholeBuf = malloc(83 * sizeof(char));
   while(1){
     char buf[1500];
     struct sockaddr_ll recvaddr;
@@ -97,89 +107,53 @@ int main(){
     if(recvaddr.sll_pkttype==PACKET_OUTGOING)
        continue;
 
-    int i;
     char str[7];
-    char str2[84];
-    int ints[4];
-    for(i = 28; i < 32; i++){
-      ints[i-28] = (int)buf[i];
-    }
-
-    char macaddr[11];
+    sprintf(str, "%d.%d.%d.%d", buf[38], buf[39], buf[40], buf[41]);//target ip
+    char str2[8];
+    sprintf(str2, "%02X%02X", buf[12], buf[13]);//type
+    char str3[4];
+    sprintf(str3, "%02X", buf[21]);//op flag
+    
+    int i;
     int len = 0;
     for(i = 0; i < 6; i++){//gets macaddr of last recvd
        len+=sprintf(macaddr+len,"%02X%s",recvaddr.sll_addr[i],i < 5 ? ":":"");
     }
-    
-    sprintf(str, "%d.%d.%d.%d", ints[0], ints[1], ints[2], ints[3]);
+    len = 0;
+    for(i = 0; i < 42; i++){//gets macaddr of last recvd
+      len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
+    }
     //start processing all others
     
     char sendbuf[1500];
     
-    if(strcmp(str, "10.0.0.1") == 0){//packet from r1
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress r1: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH3,sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
-    }
-    if(strcmp(str, "10.0.0.2") == 0){//packet from r2
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress r2: %s", macaddr);
-      sendto(send_socketH1, sendbuf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-      sendto(send_socketH2, sendbuf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
-    }
-    if(strcmp(str, "10.1.0.3") == 0){//packet from h1
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H1: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH2, sendbuf, 1500, 0, (struct sockaddr*)&h2addr, sizeof(h2addr)); 
-      sendto(send_socketR2, sendbuf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
-    }
-    if(strcmp(str, "10.1.1.5") == 0){//packet from h2
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H2: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH1, sendbuf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr)); 
-      sendto(send_socketR2, sendbuf, 1500, 0, (struct sockaddr*)&r2addr, sizeof(r2addr)); 
-    }
-    if(strcmp(str, "10.3.0.32") == 0){//packet from h3
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H3: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
-      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
-    }
-    if(strcmp(str, "10.3.1.201") == 0){//packet from h4
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H4: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH3, sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH5, sendbuf, 1500, 0, (struct sockaddr*)&h5addr, sizeof(h5addr)); 
-      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
-    }
-    if(strcmp(str, "10.3.4.54") == 0){//packet from h5
-      printf("Got a %d byte packet from ip: %s\n", n, str);
-      printf("macaddress H5: %s", macaddr);
-      memcpy(sendbuf, &buf[28], 4);
-      memcpy(&sendbuf[4], recvaddr.sll_addr, 6);
-      sendto(send_socketH3, sendbuf, 1500, 0, (struct sockaddr*)&h3addr, sizeof(h3addr)); 
-      sendto(send_socketH4, sendbuf, 1500, 0, (struct sockaddr*)&h4addr, sizeof(h4addr)); 
-      sendto(send_socketR1, sendbuf, 1500, 0, (struct sockaddr*)&r1addr, sizeof(r1addr)); 
-    }
+    fprintf(stderr, "str: %s\n", str);
+    if(strcmp(str, "10.1.0.1") == 0){//packet from h1
+      if(strcmp(str2, "0806") == 0){//arp
+        if(strcmp(str3, "01") == 0){//arp request
+          fprintf(stderr, "is an arp packet\n");
+          int ints2[4]; 
+          char temp[4];
+          int op = 2;
+          memcpy(&buf[21], &op, 1);
+          memcpy(temp, &buf[38], 4);
+          memcpy(&buf[32], &buf[6], 6);//source mac cpy into target mac
+          memcpy(&buf[38], &buf[28], 4);//source ip cpy into target ip
+          memcpy(&buf[28], temp, 4);//target ip cpy into source ip
+          memcpy(&buf[22], r1mac.sll_addr, 6);
+          memcpy(buf, &buf[6], 6);//set eth header source
+          memcpy(&buf[6], recvaddr.sll_addr, 6);//set eth header dest 
+          sendto(send_socketH1, buf, 1500, 0, (struct sockaddr*)&h1addr, sizeof(h1addr));
+        }
+      }else{
+        fprintf(stderr, "not an arp packet\n");
+      }
 
-    
+    }
     
   }
+  free(macaddr);
+  free(wholeBuf);
   //exit
   return 0;
 }
