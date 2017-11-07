@@ -99,13 +99,13 @@ int main(){
         for(i = 0; i < 6; i++){  
           r1mac.sll_addr[i] = s->sll_addr[i];
         }
-	r1_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	r2_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if(packet_socket<0){
 	  perror("socket");
 	  return 2;
 	}
         
-	if(bind(r1_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	if(bind(r2_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
 	  perror("bind");
 	}
       }
@@ -117,13 +117,13 @@ int main(){
         for(i = 0; i < 6; i++){  
           r2mac.sll_addr[i] = s->sll_addr[i];
         }
-	r2_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	r1_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if(packet_socket<0){
 	  perror("socket");
 	  return 2;
 	}
         
-	if(bind(r2_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	if(bind(r1_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
 	  perror("bind");
 	}
       }
@@ -232,7 +232,7 @@ int main(){
           if(strcmp(str, "10.1.0.1") == 0){//packet from h1
             send(eth1_socket, buf, 42, 0);
           }
-          if(strcmp(str, "10.1.1.1") == 0){//packet from h1
+          if(strcmp(str, "10.1.1.1") == 0){//packet from h2
             send(eth2_socket, buf, 42, 0);
           }
         }
@@ -253,7 +253,7 @@ int main(){
       
        
       fprintf(stderr, "str: %s\n", str);
-      if(strcmp(str, "10.0.0.1") == 0){//dest is r1
+      if(strcmp(str, "10.0.0.1") == 0 || strcmp(str, "10.0.0.2") == 0){//dest is r1
         
         //for ethernet header
         char tempMac[6];
@@ -309,15 +309,33 @@ int main(){
             checksum = createCheckSum(icmpheader, 64);//create newchecksum 
             memcpy(&buf[36], &checksum, 2);//insert checksum into icmpheader
              
-            
-            sprintf(str, "%d.%d.%d", buf[30], buf[31], buf[32]);//target ip
-            if(strcmp(str, "10.1.0") == 0){
-              send(eth1_socket, buf, 98, 0);
+            if(strcmp(str, "10.0.0.1") == 0){
+              sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
+              if(strcmp(str, "10.1.0.3") == 0){//arp reply to h1
+                send(eth1_socket, buf, 98, 0);
+              }
+              else if(strcmp(str, "10.1.1.5") == 0){//arp reply to h2
+                send(eth2_socket, buf, 98, 0);
+              }
+              else if(strcmp(str, "10.0.0.2") == 0){//arp reply to r2
+                send(r2_socket, buf, 98, 0);
+              }
             }
-            else if(strcmp(str, "10.1.1") == 0){
-              send(eth2_socket, buf, 98, 0);
+            else if(strcmp(str, "10.0.0.2") == 0){
+              sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
+              if(strcmp(str, "10.3.0.32") == 0){//arp reply to h3
+                send(eth1_socket, buf, 98, 0);
+              }
+              else if(strcmp(str, "10.3.1.201") == 0){//arp reply to h4
+                send(eth2_socket, buf, 98, 0);
+              }
+              else if(strcmp(str, "10.3.4.54") == 0){//arp reply to h5
+                send(eth3_socket, buf, 98, 0);
+              }
+              else if(strcmp(str, "10.0.0.1") == 0){//arp reply to r1
+                send(r1_socket, buf, 98, 0);
+              }
             }
-            
             
           }          
         }
@@ -345,27 +363,62 @@ int main(){
                                        //- 06-hwsize 04-protocol size 00 01-opcode
         memcpy(&arpRequest[18], &sizeAndOp, 4);//set sizes and op
         memcpy(&arpRequest[22], &buf, 6);//sender mac address(router)
-        uint32_t r1Ip = 16777226;//hex 01 00 00 0a flips to 10 00 00 a0
-                                 //flips to 0a 00 00 01 - r1 ip - 10.0.0.1
-        memcpy(&arpRequest[28], &r1Ip, 4);//sender ip address
         uint16_t allZeros = 0;
         memcpy(&arpRequest[32], &allZeros, 2);//target mac address - all  0's
         memcpy(&arpRequest[34], &allZeros, 2);//target mac address - all  0's
         memcpy(&arpRequest[36], &allZeros, 2);//target mac address - all  0's
-        memcpy(&arpRequest[38], &buf[30], 4);//target ip address
+
+
+
+        uint32_t r1Ip = 16777226;//hex 01 00 00 0a flips to 10 00 00 a0
+                                 //flips to 0a 00 00 01 - r1 ip - 10.0.0.1
+        uint32_t r2Ip = 33554442;//hex 02 00 00 0a flips to 20 00 00 a0
+                                 //flips to 0a 00 00 02 - r2 ip - 10.0.0.2
+
+
+
+        
+        char routerAddress[6];
+        memcpy(routerAddress, &buf, 6);//get this routers mac address
+
+       
+        
+        
+        if(strcmp(routerAddress, r1mac.sll_addr)==0){//we are router 1
+          memcpy(&arpRequest[28], &r1Ip, 4);//sender ip address
+          memcpy(&arpRequest[38], &r2Ip, 4);//target ip address
+          if(strcmp(str, "10.1.0") == 0){//foreward to h1
+            send(eth1_socket, arpRequest, 42, 0);
+          }
+          if(strcmp(str, "10.1.1") == 0){//foreward to h2
+            send(eth2_socket, arpRequest, 42, 0);
           
+          }
+          if(strcmp(str, "10.3.0") == 0){//foreward to r2 
+            send(r2_socket, arpRequest, 42, 0);
+          }
+        }
+        else if(strcmp(routerAddress, r2mac.sll_addr)==0){//we are router 2
+          memcpy(&arpRequest[28], &r2Ip, 4);//sender ip address
+          memcpy(&arpRequest[38], &r1Ip, 4);//target ip address
+          if(strcmp(str, "10.3.0") == 0){//foreward to h3
+            send(eth1_socket, arpRequest, 42, 0);
+          }
+          if(strcmp(str, "10.3.1") == 0){//foreward to h4
+            send(eth2_socket, arpRequest, 42, 0);
+          
+          }
+          if(strcmp(str, "10.3.4") == 0){//foreward to h5 
+            send(eth3_socket, arpRequest, 42, 0);
+          }
+          if(strcmp(str, "10.1.0") == 0){//foreward to r1 
+            send(r1_socket, arpRequest, 42, 0);
+          }
+          
+        }
+        //sprintf(str, "%d.%d.%d", arpRequest[30], arpRequest[31], arpRequest[32]);//target ip
+
          
-        if(strcmp(str, "10.1.0") == 0){//foreward to h1
-          send(eth1_socket, arpRequest, 42, 0);
-        }
-        if(strcmp(str, "10.1.1") == 0){//foreward to h2
-          send(eth2_socket, arpRequest, 42, 0);
-          
-        }
-        if(strcmp(str, "10.3.0") == 0){//foreward to r2
-          fprintf(stderr, "sends to r2: %s\n", str);
-          send(r2_socket, arpRequest, 42, 0);
-        }
       }
 
 
