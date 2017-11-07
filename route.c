@@ -77,7 +77,8 @@ int main(){
   h5addr = createIpAddr("10.3.4.54");
   
   
-  
+  packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+
   //get list of interfaces (actually addresses)
   struct ifaddrs *ifaddr, *tmp;
   if(getifaddrs(&ifaddr)==-1){
@@ -98,15 +99,33 @@ int main(){
         for(i = 0; i < 6; i++){  
           r1mac.sll_addr[i] = s->sll_addr[i];
         }
-	packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	r1_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if(packet_socket<0){
 	  perror("socket");
 	  return 2;
 	}
         
-	//if(bind(packet_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
-	//  perror("bind");
-	//}
+	if(bind(r1_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  perror("bind");
+	}
+      }
+      if(!strncmp(&(tmp->ifa_name[0]),"r2-eth0",7)){
+	printf("Creating Socket on interface %s\n",tmp->ifa_name);
+   
+        struct sockaddr_ll *s = (struct sockaddr_ll*) tmp->ifa_addr;
+        int i;
+        for(i = 0; i < 6; i++){  
+          r2mac.sll_addr[i] = s->sll_addr[i];
+        }
+	r2_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if(packet_socket<0){
+	  perror("socket");
+	  return 2;
+	}
+        
+	if(bind(r2_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  perror("bind");
+	}
       }
       if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){
 	printf("Creating Socket on interface %s\n",tmp->ifa_name);
@@ -299,17 +318,53 @@ int main(){
             if(strcmp(str, "10.1.1.5") == 0){
               send(eth2_socket, buf, 98, 0);
             }
-            
-            
-          }
-
-          
-          
-
+          }          
         }
-  
-         
+      }else{//need to foreward packet
         
+        sprintf(str, "%d.%d.%d", buf[30], buf[31], buf[32]);//target ip
+        char arpRequest[42];
+        fprintf(stderr, "str-----: %s\n", str);
+
+        //eth header
+        uint16_t allOnes = 65535;
+        memcpy(arpRequest, &allOnes, 2); 
+        memcpy(&arpRequest[2], &allOnes, 2); 
+        memcpy(&arpRequest[4], &allOnes, 2);//all F's broacast mac
+        memcpy(&arpRequest[6], &buf, 6);//set source mac address
+          
+        //arp header
+        uint16_t arpType = 1544;//hex 608 - inserts backwards as 806 (arp)
+        memcpy(&arpRequest[12], &arpType, 2);//set ethernet type 0806 - arp
+        uint16_t one = 256;//hex 01 00  flip to 10 00 flip to 00 01
+        memcpy(&arpRequest[14], &one, 2);//set hardware type to 1
+        uint16_t eightHundred = 8;//hex 00 08 - flips to 00 80 flips to 08 00
+        memcpy(&arpRequest[16], &eightHundred, 2);//set hardware type to 1
+        uint32_t sizeAndOp = 16778246;//hex 01 00 04 06 flips to 10 00 40 60 flips to 06 04 00 01
+                                       //- 06-hwsize 04-protocol size 00 01-opcode
+        memcpy(&arpRequest[18], &sizeAndOp, 4);//set sizes and op
+        memcpy(&arpRequest[22], &buf, 6);//sender mac address(router)
+        uint32_t r1Ip = 16777226;//hex 01 00 00 0a flips to 10 00 00 a0
+                                 //flips to 0a 00 00 01 - r1 ip - 10.0.0.1
+        memcpy(&arpRequest[28], &r1Ip, 4);//sender ip address
+        uint16_t allZeros = 0;
+        memcpy(&arpRequest[32], &allZeros, 2);//target mac address - all  0's
+        memcpy(&arpRequest[34], &allZeros, 2);//target mac address - all  0's
+        memcpy(&arpRequest[36], &allZeros, 2);//target mac address - all  0's
+        memcpy(&arpRequest[38], &buf[30], 4);//target ip address
+          
+        fprintf(stderr, "str-----: %s\n", str);
+         
+        if(strcmp(str, "10.1.0") == 0){//foreward to h1
+          send(eth1_socket, arpRequest, 42, 0);
+        }
+        if(strcmp(str, "10.1.1") == 0){//foreward to h2
+          send(eth2_socket, arpRequest, 42, 0);
+          
+        }
+        if(strcmp(str, "10.3.0") == 0){//foreward to r2
+          send(r2_socket, arpRequest, 42, 0);
+        }
       }
 
 
