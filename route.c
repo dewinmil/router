@@ -367,6 +367,7 @@ int main(){
         memcpy(&arpRequest[32], &allZeros, 2);//target mac address - all  0's
         memcpy(&arpRequest[34], &allZeros, 2);//target mac address - all  0's
         memcpy(&arpRequest[36], &allZeros, 2);//target mac address - all  0's
+        memcpy(&arpRequest[38], &buf[30], 4);//target ip address
 
 
 
@@ -375,18 +376,18 @@ int main(){
         uint32_t r2Ip = 33554442;//hex 02 00 00 0a flips to 20 00 00 a0
                                  //flips to 0a 00 00 02 - r2 ip - 10.0.0.2
 
-
-
-        
-        char routerAddress[6];
+        char *routerAddress = malloc(11 * sizeof(char));
         memcpy(routerAddress, &buf, 6);//get this routers mac address
-
+        
+        
+                
        
         
+        fprintf(stderr, "currently outside if statements\n");
         
         if(strcmp(routerAddress, r1mac.sll_addr)==0){//we are router 1
           memcpy(&arpRequest[28], &r1Ip, 4);//sender ip address
-          memcpy(&arpRequest[38], &r2Ip, 4);//target ip address
+          fprintf(stderr, "made it inside r1\n");
           if(strcmp(str, "10.1.0") == 0){//foreward to h1
             send(eth1_socket, arpRequest, 42, 0);
           }
@@ -395,12 +396,13 @@ int main(){
           
           }
           if(strcmp(str, "10.3.0") == 0){//foreward to r2 
+            memcpy(&arpRequest[38], &r2Ip, 4);//target ip address
             send(r2_socket, arpRequest, 42, 0);
           }
         }
         else if(strcmp(routerAddress, r2mac.sll_addr)==0){//we are router 2
           memcpy(&arpRequest[28], &r2Ip, 4);//sender ip address
-          memcpy(&arpRequest[38], &r1Ip, 4);//target ip address
+          fprintf(stderr, "made it inside r2\n");
           if(strcmp(str, "10.3.0") == 0){//foreward to h3
             send(eth1_socket, arpRequest, 42, 0);
           }
@@ -412,10 +414,12 @@ int main(){
             send(eth3_socket, arpRequest, 42, 0);
           }
           if(strcmp(str, "10.1.0") == 0){//foreward to r1 
+            memcpy(&arpRequest[38], &r1Ip, 4);//target ip address
             send(r1_socket, arpRequest, 42, 0);
           }
           
         }
+        free(routerAddress);
         //sprintf(str, "%d.%d.%d", arpRequest[30], arpRequest[31], arpRequest[32]);//target ip
 
          
