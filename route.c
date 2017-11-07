@@ -218,23 +218,45 @@ int main(){
           memcpy(&buf[32], &buf[6], 6);//source mac cpy into target mac
           memcpy(&buf[38], &buf[28], 4);//source ip cpy into target ip
           memcpy(&buf[28], temp, 4);//target ip cpy into source ip
-          memcpy(&buf[22], r1mac.sll_addr, 6);
-          memcpy(&buf[6], r1mac.sll_addr, 6);//set eth header source
-          memcpy(buf, recvaddr.sll_addr, 6);//set eth header dest 
+
+          
+          char *routerAddress = malloc(11 * sizeof(char));
+          memcpy(routerAddress, &buf, 6);//get this routers mac address
+         
+            memcpy(&buf[22], r1mac.sll_addr, 6);
+            memcpy(&buf[6], r1mac.sll_addr, 6);//set eth header source
+            memcpy(buf, recvaddr.sll_addr, 6);//set eth header dest 
             
-          /*
-          len = 0;
-          for(i = 0; i < 42; i++){//gets whole buffer
-            len+=sprintf(wholeBuf+len,"%02X%s", buf[i],i < 41 ? ":":"");
-          }
-          */
-          fprintf(stderr, "str: %s\n", str);
-          if(strcmp(str, "10.1.0.1") == 0){//packet from h1
-            send(eth1_socket, buf, 42, 0);
-          }
-          if(strcmp(str, "10.1.1.1") == 0){//packet from h2
-            send(eth2_socket, buf, 42, 0);
-          }
+            fprintf(stderr, "str: %s\n", str);
+            if(strcmp(str, "10.1.0.1") == 0){//packet from h1
+              send(eth1_socket, buf, 42, 0);
+            }
+            else if(strcmp(str, "10.1.1.1") == 0){//packet from h2
+              send(eth2_socket, buf, 42, 0);
+            }
+            else if(strcmp(str, "10.0.0.1") == 0){//packet from r2
+              send(r2_socket, buf, 42, 0);
+            }
+            else{
+
+              memcpy(&buf[22], r2mac.sll_addr, 6);
+              memcpy(&buf[6], r2mac.sll_addr, 6);//set eth header source
+             
+              fprintf(stderr, "str: %s\n", str);
+              if(strcmp(str, "10.3.0.1") == 0){//packet from h3
+                send(eth1_socket, buf, 42, 0);
+              }
+              else if(strcmp(str, "10.3.1.1") == 0){//packet from h4
+                send(eth2_socket, buf, 42, 0);
+              }
+              else if(strcmp(str, "10.3.4.1") == 0){//packet from h5
+                send(eth3_socket, buf, 42, 0);
+              }
+              else if(strcmp(str, "10.0.0.2") == 0){//packet from r1
+                send(r1_socket, buf, 42, 0);
+              }
+            }
+          free(routerAddress);
         }
       }else{
         fprintf(stderr, "not an arp packet\n");
