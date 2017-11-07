@@ -66,7 +66,7 @@ int main(){
    
   struct sockaddr_ll r1mac, r2mac;
   struct sockaddr_in ipaddr, r1addr, r2addr, h1addr, h2addr, h3addr, h4addr, h5addr;
-  int packet_socket, eth1_socket, eth2_socket, eth3_socket, send_socket, e;
+  int packet_socket, r1_socket, r2_socket, eth1_socket, eth2_socket, eth3_socket, send_socket, e;
   send_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
   ipaddr.sin_family = AF_INET;
@@ -308,16 +308,17 @@ int main(){
             memcpy(icmpheader, &buf[34], 64);//cpy icmp buffer
             checksum = createCheckSum(icmpheader, 64);//create newchecksum 
             memcpy(&buf[36], &checksum, 2);//insert checksum into icmpheader
-  
-
-            sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
+             
             
-            if(strcmp(str, "10.1.0.3") == 0){
+            sprintf(str, "%d.%d.%d", buf[30], buf[31], buf[32]);//target ip
+            if(strcmp(str, "10.1.0") == 0){
               send(eth1_socket, buf, 98, 0);
             }
-            if(strcmp(str, "10.1.1.5") == 0){
+            else if(strcmp(str, "10.1.1") == 0){
               send(eth2_socket, buf, 98, 0);
             }
+            
+            
           }          
         }
       }else{//need to foreward packet
@@ -353,7 +354,6 @@ int main(){
         memcpy(&arpRequest[36], &allZeros, 2);//target mac address - all  0's
         memcpy(&arpRequest[38], &buf[30], 4);//target ip address
           
-        fprintf(stderr, "str-----: %s\n", str);
          
         if(strcmp(str, "10.1.0") == 0){//foreward to h1
           send(eth1_socket, arpRequest, 42, 0);
@@ -363,6 +363,7 @@ int main(){
           
         }
         if(strcmp(str, "10.3.0") == 0){//foreward to r2
+          fprintf(stderr, "sends to r2: %s\n", str);
           send(r2_socket, arpRequest, 42, 0);
         }
       }
