@@ -287,7 +287,7 @@ int main(){
           if(strcmp(str, "10.3.0.32") == 0){//h3
             memcpy(h3arp, &buf[6], 6);
           }
-          if(strcmp(str, "10.3.1.201") == 0){//h4
+          if(strcmp(str, "10.3.1.-55") == 0){//h4 - -55 due to storing as int
             memcpy(h4arp, &buf[6], 6);
           }
           if(strcmp(str, "10.3.4.54") == 0){//h5
@@ -301,13 +301,13 @@ int main(){
           fprintf(stderr, "Received Mac Address: %s\n", recvMacAddr); 
           
         }
-      }else{
-        fprintf(stderr, "not an arp packet\n");
       }
+      else{ 
+        fprintf(stderr, "not an arp packet\n"); 
+      }
+    }else{//packet with ip header (the one's I deal with)
     
       
-    }else if (n == 98){//size of an icmp packet
-      fprintf(stderr, "is an icmp packet \n\n");
       
       char str[7];
       sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
@@ -355,47 +355,54 @@ int main(){
           memcpy(&buf[24], &checksum, 2);//insert checksum into ipheader
 
      
-          
-          //for icmp header
-          char icmpheader[64];
-          
-          memcpy(&checksum, &buf[36], 2);//cpy checksum 
-          memcpy(&buf[36], &clear, 2);//clear checksum
-          memcpy(icmpheader, &buf[34], 64);//cpy icmp header 
-          sum = createCheckSum(icmpheader, 64);//create icmp header checksum
+          sprintf(str3, "%02X", buf[23]);//protocol flag flag
 
-          if(sum == checksum){
+          int checkval = 0;
+          char icmpheader[64];
+          if(strcmp(str3, "01") == 0){
+          //for icmp header
+          
+            memcpy(&checksum, &buf[36], 2);//cpy checksum 
+            memcpy(&buf[36], &clear, 2);//clear checksum
+            memcpy(icmpheader, &buf[34], 64);//cpy icmp header 
+            sum = createCheckSum(icmpheader, 64);//create icmp header checksum
+            if(sum != checksum){
+              checkval = 1;
+            }
+          }
+          if(checkval == 0){
             memcpy(&buf[34], &clear, 1);
-            
-            memcpy(icmpheader, &buf[34], 64);//cpy icmp buffer
-            checksum = createCheckSum(icmpheader, 64);//create newchecksum 
-            memcpy(&buf[36], &checksum, 2);//insert checksum into icmpheader
-             
+              
+            if(strcmp(str3, "01") == 0){
+              memcpy(icmpheader, &buf[34], 64);//cpy icmp buffer
+              checksum = createCheckSum(icmpheader, 64);//create newchecksum 
+              memcpy(&buf[36], &checksum, 2);//insert checksum into icmpheader
+            }
             if(strcmp(str, "10.0.0.1") == 0){
               sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
-              if(strcmp(str, "10.1.0.3") == 0){//icmp reply to h1
-                send(eth1_socket, buf, 98, 0);
+              if(strcmp(str, "10.1.0.3") == 0){// reply to h1
+                send(eth1_socket, buf, n, 0);
               }
-              else if(strcmp(str, "10.1.1.5") == 0){//icmp reply to h2
-                send(eth2_socket, buf, 98, 0);
+              else if(strcmp(str, "10.1.1.5") == 0){// reply to h2
+                send(eth2_socket, buf, n, 0);
               }
-              else if(strcmp(str, "10.0.0.2") == 0){//icmp reply to r2
-                send(r2_socket, buf, 98, 0);
+              else if(strcmp(str, "10.0.0.2") == 0){// reply to r2
+                send(r2_socket, buf, n, 0);
               }
             }
             else if(strcmp(str, "10.0.0.2") == 0){
               sprintf(str, "%d.%d.%d.%d", buf[30], buf[31], buf[32], buf[33]);//target ip
-              if(strcmp(str, "10.3.0.32") == 0){//icmp reply to h3
-                send(eth1_socket, buf, 98, 0);
+              if(strcmp(str, "10.3.0.32") == 0){// reply to h3
+                send(eth1_socket, buf, n, 0);
               }
-              else if(strcmp(str, "10.3.1.201") == 0){//icmp reply to h4
-                send(eth2_socket, buf, 98, 0);
+              else if(strcmp(str, "10.3.1.201") == 0){// reply to h4
+                send(eth2_socket, buf, n, 0);
               }
-              else if(strcmp(str, "10.3.4.54") == 0){//icmp reply to h5
-                send(eth3_socket, buf, 98, 0);
+              else if(strcmp(str, "10.3.4.54") == 0){// reply to h5
+                send(eth3_socket, buf, n, 0);
               }
-              else if(strcmp(str, "10.0.0.1") == 0){//icmp reply to r1
-                send(r1_socket, buf, 98, 0);
+              else if(strcmp(str, "10.0.0.1") == 0){// reply to r1
+                send(r1_socket, buf, n, 0);
               }
             }
             
@@ -404,10 +411,10 @@ int main(){
       }else{//not destined for router - need to foreward packet
         
         sprintf(str, "%d.%d.%d", buf[30], buf[31], buf[32]);//target ip
-        
+      
         char *routerAddress = malloc(11 * sizeof(char));
         memcpy(routerAddress, &buf, 6);//get this routers mac address
-        
+      
         int conditional = 1;
 
         char forewardBuf[1500];
@@ -417,7 +424,7 @@ int main(){
         char tempMac[6];
         memcpy(tempMac, forewardBuf, 6);//cpy target mac
         memcpy(&forewardBuf[6], tempMac, 6);//target mac -> source mac
-        
+      
         //augment ttl
         uint8_t *ttl = &forewardBuf[22]; 
         *ttl = *ttl - 1;
@@ -436,27 +443,27 @@ int main(){
         checkSum = createCheckSum(ipheader, 20);
         memcpy(&forewardBuf[24], &checkSum, 2);
 
-
+        fprintf(stderr, "CURRENT RELEVENT STRING STR: %s\n", str);
         if(strcmp(routerAddress, r1mac.sll_addr)==0){//we are router 1
           if(strcmp(str, "10.1.0") == 0){//foreward to h1
             if(strcmp(h1arp, blank) != 0){
               memcpy(forewardBuf, h1arp, 6);//create target mac address
-              send(eth1_socket, forewardBuf, 98, 0);
+              send(eth1_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
           else if(strcmp(str, "10.1.1") == 0){//foreward to h2 
             if(strcmp(h2arp, blank) != 0){
               memcpy(forewardBuf, h2arp, 6);//create target mac address
-              send(eth2_socket, forewardBuf, 98, 0);
+              send(eth2_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
-          else if(strcmp(str, "10.3.0") == 0){//foreward to r2 
+          else if(strcmp(str, "10.3.0") == 0 || strcmp(str, "10.3.1") == 0 || strcmp(str, "10.3.4") == 0){//foreward to r2 
             if(strcmp(r2arp, blank) != 0){
               fprintf(stderr, "r2arp: %s\n", r2arp);
               memcpy(forewardBuf, r2arp, 6);//create target mac address
-              send(r2_socket, forewardBuf, 98, 0);
+              send(r2_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
@@ -465,34 +472,35 @@ int main(){
           if(strcmp(str, "10.3.0") == 0){//foreward to h3
             if(strcmp(h3arp, blank) != 0){
               memcpy(forewardBuf, h3arp, 6);//create target mac address
-              send(eth1_socket, forewardBuf, 98, 0);
+              send(eth1_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
           else if(strcmp(str, "10.3.1") == 0){//foreward to h4
             if(strcmp(h4arp, blank) != 0){
               memcpy(forewardBuf, h4arp, 6);//create target mac address
-              send(eth2_socket, forewardBuf, 98, 0);
+              send(eth2_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
           else if(strcmp(str, "10.3.4") == 0){//foreward to h5 
             if(strcmp(h5arp, blank) != 0){
               memcpy(forewardBuf, h5arp, 6);//create target mac address
-              send(eth3_socket, forewardBuf, 98, 0);
+              send(eth3_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
-          else if(strcmp(str, "10.1.0") == 0){//foreward to r1 
+          else if(strcmp(str, "10.1.0") == 0 || strcmp(str, "10.1.1") == 0){//foreward to r1 
             if(strcmp(r1arp, blank) != 0){
               memcpy(forewardBuf, r1arp, 6);//create target mac address
-              send(r1_socket, forewardBuf, 98, 0);
+              send(r1_socket, forewardBuf, n, 0);
               conditional = 0;
             }
           }
-       }
-       
-       if(conditional == 1){//we have not recieved an arp reply / mac address unknown so send arp request
+        }
+        
+        
+        if(conditional == 1){//we have not recieved an arp reply / mac address unknown so send arp request
 
 
 
@@ -516,7 +524,7 @@ int main(){
           uint16_t eightHundred = 8;//hex 00 08 - flips to 00 80 flips to 08 00
           memcpy(&arpRequest[16], &eightHundred, 2);//set hardware type to 1
           uint32_t sizeAndOp = 16778246;//hex 01 00 04 06 flips to 10 00 40 60 flips to 06 04 00 01
-                                         //- 06-hwsize 04-protocol size 00 01-opcode
+                                        //- 06-hwsize 04-protocol size 00 01-opcode
           memcpy(&arpRequest[18], &sizeAndOp, 4);//set sizes and op
           memcpy(&arpRequest[22], &buf, 6);//sender mac address(router)
           uint16_t allZeros = 0;
@@ -528,9 +536,9 @@ int main(){
 
 
           uint32_t r1Ip = 16777226;//hex 01 00 00 0a flips to 10 00 00 a0
-                                   //flips to 0a 00 00 01 - r1 ip - 10.0.0.1
+                                 //flips to 0a 00 00 01 - r1 ip - 10.0.0.1
           uint32_t r2Ip = 33554442;//hex 02 00 00 0a flips to 20 00 00 a0
-                                   //flips to 0a 00 00 02 - r2 ip - 10.0.0.2
+                                 //flips to 0a 00 00 02 - r2 ip - 10.0.0.2
 
         
         
@@ -545,9 +553,9 @@ int main(){
             }
             if(strcmp(str, "10.1.1") == 0){//foreward to h2
               send(eth2_socket, arpRequest, 42, 0);
-          
+        
             }
-            if(strcmp(str, "10.3.0") == 0){//foreward to r2 
+            if(strcmp(str, "10.3.0") == 0 || strcmp(str, "10.3.1") == 0 || strcmp(str, "10.3.4") == 0){//foreward to r2 
               memcpy(&arpRequest[38], &r2Ip, 4);//target ip address
               send(r2_socket, arpRequest, 42, 0);
             }
@@ -559,23 +567,23 @@ int main(){
             }
             if(strcmp(str, "10.3.1") == 0){//foreward to h4
               send(eth2_socket, arpRequest, 42, 0);
-          
+        
             }
             if(strcmp(str, "10.3.4") == 0){//foreward to h5 
               send(eth3_socket, arpRequest, 42, 0);
             }
-            if(strcmp(str, "10.1.0") == 0){//foreward to r1 
+            if(strcmp(str, "10.1.0") == 0 || strcmp(str, "10.1.1") == 0){//foreward to r1 
               memcpy(&arpRequest[38], &r1Ip, 4);//target ip address
               send(r1_socket, arpRequest, 42, 0);
             }
-          
+        
           }
         }
         free(routerAddress);
         //sprintf(str, "%d.%d.%d", arpRequest[30], arpRequest[31], arpRequest[32]);//target ip
 
-         
-      }
+      } 
+    }
 
 
 
@@ -585,7 +593,7 @@ int main(){
         len+=sprintf(icmpBuf+len,"%02X%s", buf[i],i < (n-1) ? ":":"");
       }
       */
-    }
+    //}prob for size 42 - placement if I was wrong on this
     
   }
   free(macaddr);
