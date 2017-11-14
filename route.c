@@ -489,8 +489,8 @@ int main(){
               sprintf(str3, "%02X", buf[23]);//protocol flag flag
               if(strcmp(str3, "01") == 0){//icmp request / throw icmp unreachable
                 char icmpheader[64];
+                uint8_t one = 1;
                 uint8_t three = 3;
-                uint8_t one = 3;
                 uint16_t fiftysix = 14336;//hex 38 00 flips to 00 38 or decimal 56
                 memcpy(buf, originalBuf, n); 
                 
@@ -519,8 +519,8 @@ int main(){
                 
                 
                 //for icmp header
-                memcpy(&buf[34], &three, 1);//set code to 03 (destination unreachable);
-                memcpy(&buf[35], &one, 1);//set code to 03 (host unreachable);
+                memcpy(&buf[34], &three, 1);//set type to 03 (destination unreachable);
+                memcpy(&buf[35], &one, 1);//set code to 01 (host unreachable);
                 memcpy(&buf[36], &clear, 2);//clear out checksum
                 memcpy(&buf[38], &clear, 2);//0 out unused bits
                 memcpy(&buf[40], &clear, 2);//0 out next-hop-mtu
@@ -579,8 +579,8 @@ int main(){
               sprintf(str3, "%02X", buf[23]);//protocol flag flag
               if(strcmp(str3, "01") == 0){//icmp request / throw icmp unreachable
                 char icmpheader[64];
+                uint8_t one = 1;
                 uint8_t three = 3;
-                uint8_t one = 3;
                 uint16_t fiftysix = 14336;//hex 38 00 flips to 00 38 or decimal 56
                 memcpy(buf, originalBuf, n); 
                 
@@ -608,8 +608,8 @@ int main(){
                 memcpy(&buf[24], &checkSum, 2);//insert checksum into ipheader
                 
                 //for icmp header
-                memcpy(&buf[34], &three, 1);//set code to 03 (destination unreachable);
-                memcpy(&buf[35], &one, 1);//set code to 03 (host unreachable);
+                memcpy(&buf[34], &three, 1);//set type to 03 (destination unreachable);
+                memcpy(&buf[35], &one, 1);//set code to 01 (host unreachable);
                 memcpy(&buf[36], &clear, 2);//clear out checksum
                 memcpy(&buf[38], &clear, 2);//0 out unused bits
                 memcpy(&buf[40], &clear, 2);//0 out next-hop-mtu
